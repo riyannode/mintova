@@ -1,5 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
-
 /**
  * Bridge execution endpoint — DISABLED
  *
@@ -7,10 +5,20 @@ import { NextRequest, NextResponse } from "next/server";
  * with a backend-controlled wallet (DCW/entity secret) because that
  * would move user funds without user signing authority.
  *
+ * The correct path is manual CCTP V2 via UCW contract execution:
+ *   1. approve(address,uint256) on USDC → challengeId → sdk.execute()
+ *   2. depositForBurnWithHook on TokenMessengerV2 → challengeId → sdk.execute()
+ *   3. Forwarding Service handles attestation + destination mint
+ *
  * Returns HTTP 501 until UCW signing path is implemented and validated.
+ *
+ * Scaffold only. Execution disabled until route contracts, fees,
+ * and UCW challenge flow are validated.
  */
+
+import { NextRequest, NextResponse } from "next/server";
+
 export async function POST(req: NextRequest) {
-  // Still parse & validate so the contract is documented
   try {
     const body = await req.json();
     const { sourceChain, destinationChain, amount, recipient } = body;
@@ -22,10 +30,7 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   // SAFETY: Do not use CIRCLE_ENTITY_SECRET for user bridge execution.

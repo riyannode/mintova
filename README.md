@@ -173,3 +173,57 @@ UCW login with Google or Email. View USDC balances, copy address, access testnet
 ## License
 
 Private. All rights reserved.
+
+
+## Planned UCW Manual CCTP Path
+
+Mintova will bridge USDC via **manual CCTP V2 + Forwarding Service** using
+Circle User-Controlled Wallets (UCW) contract execution. This is **not** the
+Bridge Kit / App Kit `kit.bridge()` path — that adapter model requires direct
+signing capability which UCW does not provide.
+
+### Architecture
+
+```
+Frontend                    Backend                     Circle / Iris
+────────                    ───────                     ─────────────
+1. User initiates bridge
+   ↓
+2. sdk.setAuth(userToken)
+   ↓
+3. Backend: create approve challenge → challengeId
+   ↓
+4. sdk.execute(challengeId) → user PIN → approve tx on-chain
+   ↓
+5. Backend: create burnWithHook challenge → challengeId
+   ↓
+6. sdk.execute(challengeId) → user PIN → burn tx on-chain
+                                               ↓
+                              7. Iris signs attestation
+                                               ↓
+                              8. Forwarding Service mints on dest chain
+                                               ↓
+                              9. Poll Iris messages → forwardTxHash
+```
+
+### What's NOT used
+
+- ❌ `kit.bridge()` — Bridge Kit adapter model incompatible with UCW
+- ❌ `CIRCLE_ENTITY_SECRET` for user fund movement
+- ❌ Raw private keys
+- ❌ DCW (Developer-Controlled Wallets) for user bridge funds
+- ❌ Destination chain wallet (Forwarding Service handles mint)
+
+### UCW Contract Execution Steps
+
+| Step | Contract | Function | Purpose |
+|------|----------|----------|---------|
+| 1 | USDC | `approve(address,uint256)` | Approve TokenMessengerV2 to spend USDC |
+| 2 | TokenMessengerV2 | `depositForBurnWithHook(...)` | Burn USDC + request forwarding |
+
+### Status
+
+- **Contract addresses**: Fetched from Circle docs (testnet)
+- **Fee API**: Iris sandbox (`iris-api-sandbox.circle.com`)
+- **UCW challenge flow**: Scaffold types + builders created
+- **Execution**: **Disabled** (HTTP 501) until end-to-end validated
