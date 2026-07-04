@@ -1,6 +1,7 @@
 "use client";
 
 import { ThemeToggle } from "./ThemeToggle";
+import Link from "next/link";
 
 export function Header() {
   return (
@@ -13,7 +14,7 @@ export function Header() {
         borderBottom: "1px solid var(--border)",
       }}
     >
-      <div className="flex items-center gap-2.5">
+      <Link href="/bridge" className="flex items-center gap-2.5">
         <div
           className="w-7 h-7 rounded-full flex items-center justify-center"
           style={{ background: "var(--accent)", boxShadow: "0 0 20px var(--accent-glow)" }}
@@ -27,7 +28,7 @@ export function Header() {
         <h1 className="text-[15px] font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
           Mintova
         </h1>
-      </div>
+      </Link>
 
       <div className="flex items-center gap-2">
         <span
