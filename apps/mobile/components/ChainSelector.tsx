@@ -12,23 +12,23 @@ export function ChainSelector({ selected, onSelect, filter }: Props) {
   const chains = filter ? CHAINS.filter(filter) : CHAINS;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {chains.map((chain) => (
         <button
           key={chain.id}
-          onClick={() => onSelect(chain.sdkName)}
+          onClick={() => chain.enabled && onSelect(chain.sdkName)}
           disabled={!chain.enabled}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-            selected === chain.sdkName
-              ? "border-[#7CFFB2] bg-[#7CFFB2]/10 text-[#7CFFB2]"
-              : chain.enabled
-              ? "border-[#2A2E38] bg-[#181B22] text-[#F7F2E8] hover:border-[#8EA7FF]"
-              : "border-[#2A2E38] bg-[#181B22] text-[#8E929C] opacity-50 cursor-not-allowed"
-          }`}
+          className="px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all duration-200 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{
+            borderRadius: "var(--radius-full)",
+            border: `1px solid ${selected === chain.sdkName ? "var(--accent)" : "var(--border)"}`,
+            background: selected === chain.sdkName ? "var(--accent-glow)" : "transparent",
+            color: selected === chain.sdkName ? "var(--accent)" : "var(--text-secondary)",
+          }}
         >
           {chain.displayName}
           {!chain.bridgeEnabled && chain.enabled && (
-            <span className="ml-1 text-[#FFB86B]"> Soon</span>
+            <span style={{ color: "var(--warning)", marginLeft: 4, fontSize: 9 }}>Soon</span>
           )}
         </button>
       ))}

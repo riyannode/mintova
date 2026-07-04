@@ -10,34 +10,53 @@ type Props = {
 
 export function ConfirmationSheet({ title, rows, onConfirm, onCancel, loading }: Props) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60">
-      <div className="w-full max-w-sm bg-[#181B22] rounded-t-2xl border-t border-[#2A2E38] p-6 space-y-4">
-        <h3 className="text-lg font-semibold">{title}</h3>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+      <div
+        className="w-full max-w-[420px] p-5 space-y-4"
+        style={{
+          background: "var(--surface)",
+          borderTop: "1px solid var(--border-strong)",
+          borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
+          boxShadow: "0 -30px 80px rgba(0,0,0,0.4)",
+        }}
+      >
+        <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>{title}</h3>
 
         <div className="space-y-2">
           {rows.map(([label, value], i) => (
-            <div key={i} className="flex justify-between text-sm">
-              <span className="text-[#8E929C]">{label}</span>
-              <span className="text-[#F7F2E8] font-medium">{value}</span>
+            <div key={i} className="flex items-center justify-between py-1">
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{label}</span>
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{value}</span>
             </div>
           ))}
         </div>
 
-        <p className="text-xs text-[#FFB86B]">
-          Testnet transaction. Please verify details before confirming.
+        <p className="text-[11px]" style={{ color: "var(--warning)" }}>
+          Testnet transaction. Verify details before confirming.
         </p>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2.5">
           <button
             onClick={onCancel}
-            className="flex-1 py-3 rounded-xl bg-[#20242D] text-[#F7F2E8] font-medium border border-[#2A2E38]"
+            className="flex-1 py-3 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
+            style={{
+              background: "var(--surface-elevated)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+            }}
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={loading}
-            className="flex-1 py-3 rounded-xl bg-[#7CFFB2] text-[#0E1014] font-semibold hover:bg-[#7CFFB2]/90 transition disabled:opacity-40"
+            className="flex-1 py-3 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-40"
+            style={{
+              background: "var(--mint)",
+              color: "#09090E",
+              borderRadius: "var(--radius-sm)",
+            }}
           >
             {loading ? "Signing..." : "Confirm"}
           </button>

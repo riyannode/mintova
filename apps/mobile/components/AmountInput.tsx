@@ -8,7 +8,14 @@ type Props = {
 
 export function AmountInput({ value, onChange, placeholder = "0.00" }: Props) {
   return (
-    <div className="relative">
+    <div
+      className="relative flex items-center px-4 py-3 transition-all duration-200"
+      style={{
+        background: "var(--surface-elevated)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-sm)",
+      }}
+    >
       <input
         type="number"
         inputMode="decimal"
@@ -17,9 +24,13 @@ export function AmountInput({ value, onChange, placeholder = "0.00" }: Props) {
         placeholder={placeholder}
         min="0"
         step="0.01"
-        className="w-full bg-transparent text-4xl font-semibold text-[#F7F2E8] placeholder-[#8E929C] outline-none border-none pr-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="flex-1 bg-transparent text-2xl font-semibold outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        style={{ color: "var(--text-primary)" }}
       />
-      <span className="absolute right-0 top-1/2 -translate-y-1/2 text-sm text-[#8E929C] bg-[#181B22] px-2 py-1 rounded">
+      <span
+        className="text-xs font-medium tracking-wider uppercase ml-2"
+        style={{ color: "var(--text-muted)" }}
+      >
         USDC
       </span>
     </div>

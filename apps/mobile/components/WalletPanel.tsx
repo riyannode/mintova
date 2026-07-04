@@ -10,56 +10,79 @@ type Props = {
 
 export function WalletPanel({ address, balances, onLogout }: Props) {
   return (
-    <div className="w-full max-w-sm bg-[#181B22] rounded-2xl border border-[#2A2E38] p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Wallet</h2>
+    <div className="w-full max-w-[420px]">
+      <div className="glass-card p-5 space-y-4">
+        <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Wallet</h2>
 
-      {address ? (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between bg-[#20242D] rounded-xl px-4 py-3">
-            <span className="text-sm font-mono text-[#F7F2E8]">
-              {shortenAddress(address)}
-            </span>
-            <button className="text-xs text-[#8EA7FF] hover:text-[#7CFFB2] transition">
-              Copy
-            </button>
-          </div>
-
-          {balances && balances.length > 0 ? (
-            <div className="space-y-2">
-              {balances.map((b) => (
-                <div
-                  key={b.chain}
-                  className="flex justify-between text-sm bg-[#20242D] rounded-xl px-4 py-2"
-                >
-                  <span className="text-[#8E929C]">{b.chain}</span>
-                  <span className="text-[#F7F2E8]">{formatUsdc(b.amount)}</span>
-                </div>
-              ))}
+        {address ? (
+          <>
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{
+                background: "var(--surface-elevated)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+              }}
+            >
+              <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>
+                {shortenAddress(address)}
+              </span>
+              <button className="text-xs font-medium transition-colors duration-200" style={{ color: "var(--accent)" }}>
+                Copy
+              </button>
             </div>
-          ) : (
-            <p className="text-sm text-[#8E929C]">No balances loaded</p>
-          )}
 
-          <div className="pt-2 space-y-2">
-            <a
-              href="https://faucet.circle.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-center text-sm text-[#8EA7FF] hover:text-[#7CFFB2] transition"
-            >
-              Get testnet USDC ↗
-            </a>
-            <button
-              onClick={onLogout}
-              className="w-full py-2 rounded-xl text-sm text-[#FF6B6B] border border-[#FF6B6B]/30 hover:bg-[#FF6B6B]/10 transition"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      ) : (
-        <p className="text-sm text-[#8E929C]">Not connected</p>
-      )}
+            <div className="pulse-line" />
+
+            {balances && balances.length > 0 ? (
+              <div className="space-y-1.5">
+                {balances.map((b) => (
+                  <div
+                    key={b.chain}
+                    className="flex items-center justify-between px-4 py-2.5"
+                    style={{
+                      background: "var(--surface-elevated)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  >
+                    <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{b.chain}</span>
+                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{formatUsdc(b.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>No balances loaded</p>
+            )}
+
+            <div className="space-y-2">
+              <a
+                href="https://faucet.circle.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-center text-xs font-medium transition-colors duration-200"
+                style={{ color: "var(--accent)" }}
+              >
+                Get testnet USDC
+              </a>
+              <button
+                onClick={onLogout}
+                className="w-full py-2 text-xs font-medium transition-all duration-200 active:scale-[0.98]"
+                style={{
+                  color: "var(--danger)",
+                  border: `1px solid rgba(255, 107, 107, 0.2)`,
+                  borderRadius: "var(--radius-sm)",
+                  background: "rgba(255, 107, 107, 0.05)",
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Not connected</p>
+        )}
+      </div>
     </div>
   );
 }
