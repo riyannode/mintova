@@ -31,18 +31,22 @@ export type UcwContractExecutionPayload = {
  * The user must approve the TokenMessengerV2 contract to spend USDC
  * before depositForBurnWithHook can be called.
  *
- * @param plan - Bridge plan with USDC address, TokenMessengerV2 address, amount
+ * IMPORTANT: The approved amount is burnAmountAtomic (transfer + fees),
+ * not just the transfer amount, because the Forwarding Service requires
+ * the burn to cover both protocol and forwarding fees.
+ *
+ * @param plan - Bridge plan with USDC address, TokenMessengerV2 address, burnAmountAtomic
  * @returns Payload for UCW contract execution
  */
 export function buildApproveExecution(
-  plan: Pick<CctpBridgePlan, "usdcAddress" | "tokenMessengerV2Address" | "amountAtomic">,
+  plan: Pick<CctpBridgePlan, "usdcAddress" | "tokenMessengerV2Address" | "burnAmountAtomic">,
 ): UcwContractExecutionPayload {
   return {
     contractAddress: plan.usdcAddress,
     abiFunctionSignature: "approve(address,uint256)",
     abiParameters: [
       plan.tokenMessengerV2Address,
-      plan.amountAtomic,
+      plan.burnAmountAtomic,
     ],
   };
 }
@@ -53,13 +57,17 @@ export function buildApproveExecution(
  * This burns USDC on the source chain and includes the Forwarding Service
  * hook data so Circle handles attestation + destination mint.
  *
+ * IMPORTANT: For Forwarding Service, the burn amount must be
+ * burnAmountAtomic (transfer + fees), and maxFee must cover both
+ * protocol fee and forwarding fee.
+ *
  * Full ABI: depositForBurnWithHook(
- *   uint256 amount,
+ *   uint256 amount,              ← burnAmountAtomic
  *   uint32  destinationDomain,
  *   bytes32 mintRecipient,
  *   address burnToken,
  *   bytes32 destinationCaller,
- *   uint256 maxFee,
+ *   uint256 maxFee,              ← maxFeeAtomic (protocol + forwarding)
  *   uint32  minFinalityThreshold,
  *   bytes   hookData
  * )
@@ -71,7 +79,7 @@ export function buildDepositForBurnWithHookExecution(
   plan: Pick<
     CctpBridgePlan,
     | "tokenMessengerV2Address"
-    | "amountAtomic"
+    | "burnAmountAtomic"
     | "destinationDomain"
     | "recipientAddress"
     | "usdcAddress"
@@ -90,12 +98,12 @@ export function buildDepositForBurnWithHookExecution(
     abiFunctionSignature:
       "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
     abiParameters: [
-      plan.amountAtomic,                    // amount
+      plan.burnAmountAtomic,                // amount (transfer + fees)
       plan.destinationDomain.toString(),    // destinationDomain
       recipientBytes32,                     // mintRecipient
       plan.usdcAddress,                     // burnToken (USDC)
       destinationCaller,                    // destinationCaller (bytes32(0))
-      plan.maxFeeAtomic,                    // maxFee
+      plan.maxFeeAtomic,                    // maxFee (protocol + forwarding)
       plan.minFinalityThreshold.toString(), // minFinalityThreshold
       plan.hookData,                        // hookData (forwarding hook)
     ],

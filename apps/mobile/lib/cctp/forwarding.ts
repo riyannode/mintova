@@ -64,14 +64,19 @@ export function buildFeeQueryUrl(
 /**
  * Build the Iris messages query URL for tracking forwarding status.
  *
+ * Uses the Circle Iris messages endpoint:
+ *   /v2/messages/{sourceDomain}?transactionHash={transactionHash}
+ *
+ * @param sourceDomain - CCTP domain ID of the source chain (e.g. 0 for Ethereum)
  * @param transactionHash - The burn transaction hash on source chain
  * @param environment - "testnet" | "mainnet"
  * @returns Full URL for the messages API endpoint
  */
 export function buildMessagesQueryUrl(
+  sourceDomain: number,
   transactionHash: string,
   environment: "testnet" | "mainnet",
 ): string {
   const base = CCTP_FEE_API[environment];
-  return `${base}/v2/messages/0/${transactionHash}`;
+  return `${base}/v2/messages/${sourceDomain}?transactionHash=${transactionHash}`;
 }

@@ -28,15 +28,22 @@ export type FeeQuoteResult =
 /**
  * Fetch a live CCTP forwarding fee quote from the Iris API.
  *
+ * Calculates the full fee breakdown per Circle docs:
+ *   protocolFee = transferAmount × minimumFee (as proportion)
+ *   maxFee = protocolFee + forwardFee
+ *   burnAmount = transferAmount + maxFee
+ *
  * @param sourceDomain - CCTP source domain ID
  * @param destinationDomain - CCTP destination domain ID
  * @param environment - "testnet" or "mainnet"
- * @returns FeeQuoteResult with live quote or error
+ * @param transferAmountAtomic - User's transfer amount in atomic USDC units (6 decimals)
+ * @returns FeeQuoteResult with full breakdown or error
  */
 export async function getCctpForwardingFeeQuote(
   sourceDomain: number,
   destinationDomain: number,
   environment: "testnet" | "mainnet",
+  transferAmountAtomic: bigint,
 ): Promise<FeeQuoteResult> {
   const url = buildFeeQueryUrl(sourceDomain, destinationDomain, environment);
 
@@ -77,13 +84,27 @@ export async function getCctpForwardingFeeQuote(
 
     // Convert forwardFee from USDC human-readable to atomic (6 decimals)
     // The API returns values like 207543 which is 0.207543 USDC
-    const forwardFeeAtomic = BigInt(Math.round(fastEntry.forwardFee.med)).toString();
+    const forwardFeeAtomic = BigInt(Math.round(fastEntry.forwardFee.med));
+
+    // Protocol fee: transferAmount × minimumFee (minimumFee is a proportion, e.g. 0.0001)
+    // Formula from Circle docs:
+    //   protocolFee = (transferAmount * round(minimumFee * 100)) / 1_000_000
+    // This converts the proportion to a BigInt calculation with 6-decimal precision
+    const minimumFeeRaw = fastEntry.minimumFee;
+    const protocolFeeAtomic =
+      (transferAmountAtomic * BigInt(Math.round(minimumFeeRaw * 100))) / BigInt(1_000_000);
+
+    const maxFeeAtomic = forwardFeeAtomic + protocolFeeAtomic;
+    const burnAmountAtomic = transferAmountAtomic + maxFeeAtomic;
 
     return {
       ok: true,
       quote: {
-        minimumFeeBps: fastEntry.minimumFee,
-        forwardFeeAtomic,
+        minimumFeeRaw,
+        protocolFeeAtomic: protocolFeeAtomic.toString(),
+        forwardFeeAtomic: forwardFeeAtomic.toString(),
+        maxFeeAtomic: maxFeeAtomic.toString(),
+        burnAmountAtomic: burnAmountAtomic.toString(),
         finalityThreshold: fastEntry.finalityThreshold,
         live: true,
         sourceApi: environment === "testnet" ? "iris-api-sandbox.circle.com" : "iris-api.circle.com",

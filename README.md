@@ -218,8 +218,26 @@ Frontend                    Backend                     Circle / Iris
 
 | Step | Contract | Function | Purpose |
 |------|----------|----------|---------|
-| 1 | USDC | `approve(address,uint256)` | Approve TokenMessengerV2 to spend USDC |
-| 2 | TokenMessengerV2 | `depositForBurnWithHook(...)` | Burn USDC + request forwarding |
+| 1 | USDC | `approve(address,uint256)` | Approve TokenMessengerV2 to spend burnAmount (transfer + fees) |
+| 2 | TokenMessengerV2 | `depositForBurnWithHook(...)` | Burn burnAmount + request forwarding |
+
+### Fee Model (Forwarding Service)
+
+The burn amount in CCTP must cover **both** the transfer and all fees:
+
+```
+protocolFee  = (transferAmount × minimumFee)    — Circle protocol fee
+forwardFee   = forwardFee.med from Iris API     — Forwarding Service fee
+maxFee       = protocolFee + forwardFee
+burnAmount   = transferAmount + maxFee           — approve & burn this
+```
+
+- `transferAmountAtomic` — what the user wants to send (visible to user)
+- `burnAmountAtomic` — what gets approved and burned (transfer + fees)
+- `maxFeeAtomic` — passed as the `maxFee` parameter to `depositForBurnWithHook`
+
+The `buildMessagesQueryUrl()` uses `sourceDomain` (not hardcoded `0`) to query
+Iris message status: `/v2/messages/{sourceDomain}?transactionHash={txHash}`.
 
 ### Status
 
