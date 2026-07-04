@@ -12,13 +12,23 @@ Mintova V1 is testnet-first. Mainnet is disabled by default and will not be enab
 
 | Chain | Chain ID | Bridge | Swap | Status |
 |-------|----------|--------|------|--------|
-| Arc Testnet | 5042002 | ✅ | ❌ | Enabled |
-| Ethereum Sepolia | 11155111 | ✅ | ❌ | Enabled |
-| Base Sepolia | 84532 | ✅ | ❌ | Enabled |
-| Arbitrum Sepolia | 421614 | ❌ | ❌ | Coming soon |
-| Avalanche Fuji | 43113 | ❌ | ❌ | Coming soon |
+| Arc Testnet | 5042002 | Unverified | ❌ | Enabled |
+| Ethereum Sepolia | 11155111 | Unverified | ❌ | Enabled |
+| Base Sepolia | 84532 | Unverified | ❌ | Enabled |
+| Arbitrum Sepolia | 421614 | Unverified | ❌ | Enabled |
+| Avalanche Fuji | 43113 | Unverified | ❌ | Enabled |
+| OP Sepolia | 11155420 | Unverified | ❌ | Enabled |
+| Polygon Amoy | 80002 | Unverified | ❌ | Enabled |
 
-Bridge support requires verification against installed Circle App Kit / Bridge Kit SDK before enabling.
+**Bridge status**: All 7 chains are registered in the SDK but none are verified for end-to-end bridge execution yet. Bridge execution is disabled (HTTP 501) until UCW user-signing is wired. Once signing is validated, individual routes will be promoted to "verified" after a successful testnet transfer.
+
+## ⚠️ Bridge Execution Status
+
+Bridge execution is **disabled** (Phase 4). The backend will return HTTP 501 for all bridge execute and retry requests.
+
+**Why**: UCW (User-Controlled Wallet) signing is not wired yet. We refuse to use `CIRCLE_ENTITY_SECRET` for user bridge execution because that would move user funds without user signing authority.
+
+**What's needed**: UCW user-signing integration where the user's wallet signs the bridge transaction client-side, then submits to the backend for relay.
 
 ## Tech Stack
 
@@ -54,8 +64,10 @@ cp .env.example .env.local
 Fill in:
 - `CIRCLE_API_KEY` — from Circle Developer Console
 - `CIRCLE_APP_ID` — from Wallets > User Controlled > Configurator
-- `CIRCLE_ENTITY_SECRET` — entity secret for DCW (admin only)
+- `CIRCLE_ENTITY_SECRET` — entity secret for DCW admin operations only (NOT used for user bridge execution)
 - `AI_API_KEY` — OpenAI API key for LangChain agent
+- `NEXT_PUBLIC_CIRCLE_APP_ID` — Circle App ID for client-side UCW SDK
+- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` — Google OAuth client ID for UCW login
 
 ### Run
 
@@ -95,9 +107,9 @@ User chat
   -> App validates route, amount, address, balance
   -> App shows confirmation sheet
   -> User confirms
-  -> UCW wallet signs
-  -> CCTP bridge executes
-  -> Activity tracks approve/burn/attestation/mint
+  -> UCW wallet signs (NOT WIRED YET)
+  -> [DISABLED] CCTP bridge executes
+  -> [DISABLED] Activity tracks approve/burn/attestation/mint
 ```
 
 ## Security
@@ -108,11 +120,13 @@ User chat
 - No AI_API_KEY exposed client-side
 - Every transfer requires user confirmation
 - AI agent never signs or executes transactions
+- **CIRCLE_ENTITY_SECRET is never used for user bridge execution** — user bridge requires UCW user signing
+- Bridge execution returns 501 until UCW signing is validated
 
 ## Features
 
 ### Bridge
-Cross-chain USDC transfer via CCTP V2. Full lifecycle tracking: approve → burn → attestation → mint.
+Cross-chain USDC transfer via CCTP V2. All 7 testnet chains registered. Execution disabled until UCW signing is wired. Quote shows "pending verification" for fee and time — no fake data.
 
 ### Swap
 Same-chain token swap. V1 is UI shell only (disabled). Enable after App Kit swap route verification.
@@ -126,7 +140,7 @@ AI-powered natural language commands:
 Agent parses intent → shows confirmation → user confirms → wallet signs.
 
 ### Activity
-Full bridge history with step-by-step progress, explorer links, and retry support for soft failures.
+Full bridge history with step-by-step progress. Blocked executions stored with `errorCode: "UCW_BRIDGE_SIGNING_NOT_READY"`. Retry disabled (no saved SDK result).
 
 ### Wallet
 UCW login with Google or Email. View USDC balances, copy address, access testnet faucets.
@@ -138,14 +152,14 @@ UCW login with Google or Email. View USDC balances, copy address, access testnet
 3. Email login works
 4. UCW wallet address created/restored
 5. USDC balance fetchable
-6. Bridge page shows 5 target testnets
-7. Unsupported routes disabled
-8. Supported routes quote correctly
+6. Bridge page shows 7 target testnets
+7. All routes show as "unverified" — bridge form hidden (no bridgeEnabled chains)
+8. ~~Supported routes quote correctly~~ → Quote shows "pending verification"
 9. Confirmation sheet before signing
-10. Wallet signing after Confirm
-11. Bridge creates real testnet tx(s)
-12. Activity stores approve/burn/attestation/mint steps
-13. Retry works from saved result
+10. ~~Wallet signing after Confirm~~ → Returns 501 blocked state
+11. ~~Bridge creates real testnet tx(s)~~ → Blocked until UCW signing wired
+12. Activity stores blocked status with error code
+13. ~~Retry works from saved result~~ → Returns 501
 14. Agent parses commands into JSON intent
 15. Agent asks clarification for missing fields
 16. Agent does not execute without Confirm
@@ -153,6 +167,8 @@ UCW login with Google or Email. View USDC balances, copy address, access testnet
 18. No CIRCLE_API_KEY in client bundle
 19. No AI_API_KEY in client bundle
 20. No fake tx hashes or fake success states
+21. No fake fee ("~0.001 USDC") or fake time ("8-20 seconds")
+22. No backend entity secret used for user bridge execution
 
 ## License
 

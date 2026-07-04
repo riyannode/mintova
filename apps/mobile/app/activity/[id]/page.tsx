@@ -38,11 +38,13 @@ export default function ActivityDetailPage() {
       });
       const data = await res.json();
 
+      const newStatus: ActivityEntry["status"] = data.state === "success" ? "complete" : "failed";
       const updated: ActivityEntry = {
         ...entry,
-        status: data.state === "success" ? "complete" : "failed",
+        status: newStatus,
         steps: data.steps || entry.steps,
         error: data.error,
+        retryable: res.status !== 501,
       };
       setEntry(updated);
       updateActivity(entry.localId, updated);

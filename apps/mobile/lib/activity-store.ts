@@ -16,9 +16,13 @@ export type ActivityEntry = {
   recipient: string;
   status: "pending" | "attesting" | "minting" | "complete" | "failed";
   result?: unknown;
+  /** Full SDK result object when real execution exists */
+  sdkResult?: unknown;
   steps: BridgeStep[];
   explorerLinks: string[];
   error?: string;
+  /** Error code for programmatic handling (e.g. "UCW_BRIDGE_SIGNING_NOT_READY") */
+  errorCode?: string;
   retryable: boolean;
 };
 

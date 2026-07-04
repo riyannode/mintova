@@ -1,31 +1,29 @@
 /**
  * Bridge service - CCTP V2 via Circle App Kit
  *
- * Uses Circle Wallets adapter on backend (server-side).
- * Frontend handles validation, confirmation UI, and activity tracking.
+ * SAFETY: Bridge execution is disabled (501) until UCW user-signing
+ * is wired. The backend will NOT execute transfers with entity secret.
  *
- * Bridge flow:
- * 1. Frontend validates params + shows confirmation
- * 2. User confirms → POST /api/bridge/execute
- * 3. Backend runs kit.bridge() with Circle Wallets adapter
- * 4. Backend returns result with steps
- * 5. Frontend updates activity store
+ * Quote is honest: no fake fee or estimated time until a real SDK
+ * quote API is confirmed.
  */
 
-import { assertSupportedRoute, getChainBySdkName } from "./chains";
+import { assertSupportedRoute, getChainBySdkName, isRouteVerified } from "./chains";
 import { isValidEvmAddress, isValidAmount } from "./validation";
 import { MintovaError } from "./errors";
-import type { ActivityEntry, BridgeStep } from "./activity-store";
+import type { BridgeStep } from "./activity-store";
 
 export type BridgeQuote = {
   provider: string;
-  estimatedTime: string;
+  estimatedTime: string | null;
   steps: string[];
-  fee?: string;
+  fee: string | null;
   sourceChain: string;
   destinationChain: string;
   amount: string;
   recipient: string;
+  quoteAvailable: boolean;
+  message?: string;
 };
 
 export type BridgeParams = {
@@ -41,6 +39,8 @@ export type BridgeExecuteResult = {
   state: string;
   steps: BridgeStep[];
   error?: string;
+  errorCode?: string;
+  executionEnabled?: boolean;
 };
 
 export function validateBridgeParams(params: BridgeParams): void {
@@ -60,16 +60,35 @@ export async function quoteBridge(params: BridgeParams): Promise<BridgeQuote> {
 
   const srcChain = getChainBySdkName(params.sourceChain);
   const dstChain = getChainBySdkName(params.destinationChain);
+  const routeVerified = isRouteVerified(params.sourceChain, params.destinationChain);
+
+  // Honest quote: no fake fee or time until SDK quote API is confirmed
+  if (!routeVerified) {
+    return {
+      provider: "CCTP_V2_UNVERIFIED",
+      estimatedTime: null,
+      steps: ["approve", "burn", "fetchAttestation", "mint"],
+      fee: null,
+      sourceChain: srcChain?.displayName || params.sourceChain,
+      destinationChain: dstChain?.displayName || params.destinationChain,
+      amount: params.amount,
+      recipient: params.recipient,
+      quoteAvailable: false,
+      message: "Quote unavailable until execution route is verified",
+    };
+  }
 
   return {
     provider: "CCTP_V2",
-    estimatedTime: "8-20 seconds",
+    estimatedTime: null,
     steps: ["approve", "burn", "fetchAttestation", "mint"],
-    fee: "~0.001 USDC",
+    fee: null,
     sourceChain: srcChain?.displayName || params.sourceChain,
     destinationChain: dstChain?.displayName || params.destinationChain,
     amount: params.amount,
     recipient: params.recipient,
+    quoteAvailable: false,
+    message: "Quote unavailable until execution route is verified",
   };
 }
 
@@ -87,6 +106,18 @@ export async function executeBridge(
 
     const data = await res.json();
 
+    // 501 = UCW signing not wired — safe block, not a transient error
+    if (res.status === 501) {
+      return {
+        success: false,
+        state: "blocked",
+        steps: [],
+        error: data.error || "Bridge execution is not enabled yet",
+        errorCode: data.code || "UCW_BRIDGE_SIGNING_NOT_READY",
+        executionEnabled: false,
+      };
+    }
+
     if (!res.ok) {
       return {
         success: false,
@@ -101,6 +132,7 @@ export async function executeBridge(
       activityId: data.activityId,
       state: data.state || "success",
       steps: data.steps || [],
+      executionEnabled: true,
     };
   } catch (err: any) {
     return {
@@ -123,6 +155,18 @@ export async function retryBridge(
     });
 
     const data = await res.json();
+
+    // 501 = retry not safe without saved SDK result
+    if (res.status === 501) {
+      return {
+        success: false,
+        state: "blocked",
+        steps: [],
+        error: data.error || "Bridge retry is not available",
+        errorCode: data.code || "BRIDGE_RETRY_NOT_READY",
+        executionEnabled: false,
+      };
+    }
 
     if (!res.ok) {
       return {
@@ -153,15 +197,28 @@ export function buildBridgeConfirmation(params: BridgeParams, quote: BridgeQuote
   const srcChain = getChainBySdkName(params.sourceChain);
   const dstChain = getChainBySdkName(params.destinationChain);
 
+  const rows: [string, string][] = [
+    ["From", srcChain?.displayName || params.sourceChain],
+    ["To", dstChain?.displayName || params.destinationChain],
+    ["Recipient", `${params.recipient.slice(0, 6)}...${params.recipient.slice(-4)}`],
+    ["Route", quote.provider],
+  ];
+
+  // Only show fee/time if quote is available
+  if (quote.quoteAvailable) {
+    rows.push(["Est. time", quote.estimatedTime || "—"]);
+    rows.push(["Fee", quote.fee || "—"]);
+  } else {
+    rows.push(["Est. time", "Pending verification"]);
+    rows.push(["Fee", "Pending verification"]);
+  }
+
+  if (quote.message) {
+    rows.push(["Note", quote.message]);
+  }
+
   return {
     title: `Bridge ${params.amount} USDC`,
-    rows: [
-      ["From", srcChain?.displayName || params.sourceChain],
-      ["To", dstChain?.displayName || params.destinationChain],
-      ["Recipient", `${params.recipient.slice(0, 6)}...${params.recipient.slice(-4)}`],
-      ["Route", quote.provider],
-      ["Est. time", quote.estimatedTime],
-      ["Fee", quote.fee || "N/A"],
-    ] as [string, string][],
+    rows,
   };
 }

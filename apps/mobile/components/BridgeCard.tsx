@@ -92,13 +92,15 @@ export function BridgeCard() {
       });
       setView("success");
     } else {
+      // 501 blocked or real error — same UI, honest message
       setSteps(result.steps);
       setError(result.error || "Bridge failed");
       updateActivity(localId, {
-        status: "failed",
+        status: result.state === "blocked" ? "failed" : "failed",
         steps: result.steps,
         error: result.error,
-        retryable: true,
+        errorCode: result.errorCode,
+        retryable: false, // No retry without saved SDK result
       });
       setView("error");
     }
@@ -121,9 +123,14 @@ export function BridgeCard() {
       updateActivity(activityId, { status: "complete", steps: result.steps });
       setView("success");
     } else {
-      setSteps(result.steps);
-      setError(result.error);
-      updateActivity(activityId, { status: "failed", steps: result.steps, error: result.error });
+      setSteps(result.steps || []);
+      setError(result.error || "Bridge retry is not available");
+      updateActivity(activityId, {
+        status: "failed",
+        steps: result.steps || [],
+        error: result.error,
+        retryable: false,
+      });
       setView("error");
     }
   }, [activityId]);

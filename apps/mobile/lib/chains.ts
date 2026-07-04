@@ -1,13 +1,16 @@
 /**
  * Mintova Chain Registry - V1 Testnet
  *
- * All 7 chains verified against:
- * - @circle-fin/bridge-kit BridgeChain enum (CCTPv2 support)
- * - @circle-fin/user-controlled-wallets Blockchain enum (UCW support)
+ * Bridge support status per chain:
+ * - "verified":   Route confirmed working with installed SDK/config
+ * - "unverified": Chain exists in SDK but bridge execution not yet validated end-to-end
+ * - "disabled":   Chain not supported or not in SDK
  *
- * Bridge support: All 7 chains have CCTPv2 domain support in BridgeKit.
- * UCW support: All 7 chains have wallet support in UCW SDK.
+ * SAFETY: bridgeEnabled is false for all routes until UCW signing is wired
+ * and each route is validated with a real testnet bridge transfer.
  */
+
+export type BridgeStatus = "verified" | "unverified" | "disabled";
 
 export type MintovaChain = {
   id: string;
@@ -20,6 +23,7 @@ export type MintovaChain = {
   environment: "testnet" | "mainnet";
   enabled: boolean;
   bridgeEnabled: boolean;
+  bridgeStatus: BridgeStatus;
   swapEnabled: boolean;
   sendEnabled: boolean;
   explorerBaseUrl: string;
@@ -40,7 +44,8 @@ export const CHAINS: MintovaChain[] = [
     type: "evm",
     environment: "testnet",
     enabled: true,
-    bridgeEnabled: true,
+    bridgeEnabled: false,
+    bridgeStatus: "unverified",
     swapEnabled: false,
     sendEnabled: true,
     explorerBaseUrl: "https://testnet.arcscan.app",
@@ -56,7 +61,8 @@ export const CHAINS: MintovaChain[] = [
     type: "evm",
     environment: "testnet",
     enabled: true,
-    bridgeEnabled: true,
+    bridgeEnabled: false,
+    bridgeStatus: "unverified",
     swapEnabled: false,
     sendEnabled: true,
     explorerBaseUrl: "https://sepolia.etherscan.io",
@@ -72,7 +78,8 @@ export const CHAINS: MintovaChain[] = [
     type: "evm",
     environment: "testnet",
     enabled: true,
-    bridgeEnabled: true,
+    bridgeEnabled: false,
+    bridgeStatus: "unverified",
     swapEnabled: false,
     sendEnabled: true,
     explorerBaseUrl: "https://sepolia.basescan.org",
@@ -88,7 +95,8 @@ export const CHAINS: MintovaChain[] = [
     type: "evm",
     environment: "testnet",
     enabled: true,
-    bridgeEnabled: true,
+    bridgeEnabled: false,
+    bridgeStatus: "unverified",
     swapEnabled: false,
     sendEnabled: true,
     explorerBaseUrl: "https://sepolia.arbiscan.io",
@@ -104,7 +112,8 @@ export const CHAINS: MintovaChain[] = [
     type: "evm",
     environment: "testnet",
     enabled: true,
-    bridgeEnabled: true,
+    bridgeEnabled: false,
+    bridgeStatus: "unverified",
     swapEnabled: false,
     sendEnabled: true,
     explorerBaseUrl: "https://testnet.snowtrace.io",
@@ -120,7 +129,8 @@ export const CHAINS: MintovaChain[] = [
     type: "evm",
     environment: "testnet",
     enabled: true,
-    bridgeEnabled: true,
+    bridgeEnabled: false,
+    bridgeStatus: "unverified",
     swapEnabled: false,
     sendEnabled: true,
     explorerBaseUrl: "https://sepolia-optimistic.etherscan.io",
@@ -136,7 +146,8 @@ export const CHAINS: MintovaChain[] = [
     type: "evm",
     environment: "testnet",
     enabled: true,
-    bridgeEnabled: true,
+    bridgeEnabled: false,
+    bridgeStatus: "unverified",
     swapEnabled: false,
     sendEnabled: true,
     explorerBaseUrl: "https://amoy.polygonscan.com",
@@ -164,7 +175,7 @@ export function getChainByChainId(chainId: number): MintovaChain | undefined {
   return CHAINS.find((c) => c.chainId === chainId);
 }
 
-/** Assert that a bridge route is supported */
+/** Assert that a bridge route is supported and enabled */
 export function assertSupportedRoute(source: string, destination: string): boolean {
   const src = getChainBySdkName(source);
   const dst = getChainBySdkName(destination);
@@ -173,6 +184,14 @@ export function assertSupportedRoute(source: string, destination: string): boole
   if (!src.bridgeEnabled || !dst.bridgeEnabled) return false;
   if (source === destination) return false;
   return true;
+}
+
+/** Check if both ends of a route are verified (not just "enabled") */
+export function isRouteVerified(source: string, destination: string): boolean {
+  const src = getChainBySdkName(source);
+  const dst = getChainBySdkName(destination);
+  if (!src || !dst) return false;
+  return src.bridgeStatus === "verified" && dst.bridgeStatus === "verified";
 }
 
 /** Get all enabled chains for display */
