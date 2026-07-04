@@ -119,10 +119,23 @@ export function AgentChat() {
         { role: "agent", content: `Bridge complete! ${params.amount} USDC sent.`, type: "success" },
       ]);
     } else {
-      updateActivity(localId, { status: "failed", steps: result.steps, error: result.error, retryable: true });
+      const isBlocked = result.errorCode === "UCW_BRIDGE_SIGNING_NOT_READY";
+      updateActivity(localId, {
+        status: "failed",
+        steps: result.steps,
+        error: result.error,
+        errorCode: result.errorCode,
+        retryable: false,
+      });
       setMessages((prev) => [
         ...prev,
-        { role: "agent", content: `Bridge failed: ${result.error}`, type: "error" },
+        {
+          role: "agent",
+          content: isBlocked
+            ? "Bridge execution is disabled until UCW signing is wired."
+            : `Bridge failed: ${result.error}`,
+          type: "error",
+        },
       ]);
     }
   }

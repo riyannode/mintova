@@ -147,8 +147,8 @@ export async function POST(req: NextRequest) {
           ["From", srcName],
           ["To", dstName],
           ["Recipient", result.intent.recipient ? `${result.intent.recipient.slice(0, 6)}...${result.intent.recipient.slice(-4)}` : ""],
-          ["Route", "CCTP V2"],
-          ["Est. time", "8-20 seconds"],
+          ["Route", "CCTP V2 (unverified)"],
+          ["Est. time", "Pending verification"],
         ],
       };
     }

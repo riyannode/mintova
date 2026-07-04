@@ -20,7 +20,7 @@ Supported testnet chains:
 - OP Sepolia (Optimism_Sepolia)
 - Polygon Amoy (Polygon_Amoy_Testnet)
 
-All chains support USDC bridging via CCTP V2.
+All V1 testnet chains are registered for display, but bridge execution is disabled until UCW signing and route verification are complete. Do not claim any route is live or verified unless bridgeStatus is verified.
 
 Response types:
 - intent_ready: all required fields present, ready for confirmation

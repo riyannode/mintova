@@ -8,6 +8,7 @@ import { ProgressTimeline } from "./ProgressTimeline";
 import { quoteBridge, executeBridge, buildBridgeConfirmation, type BridgeParams } from "@/lib/bridge";
 import { validateBridgeParams } from "@/lib/bridge";
 import { isHighValue } from "@/lib/validation";
+import { getEnabledBridgeChains } from "@/lib/chains";
 import { saveActivity, updateActivity, generateLocalId, type ActivityEntry, type BridgeStep } from "@/lib/activity-store";
 
 type View = "form" | "confirming" | "executing" | "success" | "error";
@@ -222,7 +223,7 @@ export function BridgeCard() {
           <div className="flex gap-2.5">
             <button
               onClick={reset}
-              className="flex-1 py-3 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
+              className="w-full py-3 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
               style={{
                 background: "var(--surface-elevated)",
                 color: "var(--text-secondary)",
@@ -230,18 +231,7 @@ export function BridgeCard() {
                 borderRadius: "var(--radius-sm)",
               }}
             >
-              Cancel
-            </button>
-            <button
-              onClick={handleRetry}
-              className="flex-1 py-3 text-sm font-semibold transition-all duration-200 active:scale-[0.98]"
-              style={{
-                background: "var(--accent)",
-                color: "var(--bg)",
-                borderRadius: "var(--radius-sm)",
-              }}
-            >
-              Retry
+              Back
             </button>
           </div>
         </div>
@@ -250,18 +240,45 @@ export function BridgeCard() {
   }
 
   // Main form
+  const bridgeRoutesAvailable = getEnabledBridgeChains().length > 0;
+
   return (
     <div className="w-full max-w-[420px]">
       <div className="glass-card p-5 space-y-5">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Bridge</h2>
-          <span className="text-[10px] font-medium tracking-wider uppercase" style={{ color: "var(--text-muted)" }}>
-            CCTP V2
+          <span
+            className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5 rounded-full"
+            style={{
+              background: "rgba(255, 193, 7, 0.1)",
+              color: "var(--warning)",
+              border: "1px solid rgba(255, 193, 7, 0.2)",
+            }}
+          >
+            Pending UCW signing
           </span>
         </div>
 
         <div className="pulse-line" />
 
+        {!bridgeRoutesAvailable ? (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(255, 193, 7, 0.1)", border: "1px solid rgba(255, 193, 7, 0.2)" }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
+              Bridge execution is disabled until UCW user-signing and route verification are complete.
+            </p>
+          </div>
+        ) : (
+        <>
         {/* From */}
         <div className="space-y-2">
           <label className="text-[11px] font-medium uppercase tracking-[0.1em]" style={{ color: "var(--text-muted)" }}>From</label>
@@ -336,6 +353,8 @@ export function BridgeCard() {
         >
           Bridge USDC
         </button>
+        </>
+        )}
       </div>
 
       {/* Confirmation Sheet */}
