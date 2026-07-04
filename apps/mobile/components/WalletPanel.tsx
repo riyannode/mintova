@@ -1,10 +1,17 @@
 "use client";
 
 import { shortenAddress, formatUsdc } from "@/lib/format";
+import { getChainByChainId, type MintovaChain } from "@/lib/chains";
+
+type BalanceEntry = {
+  chain: string;
+  amount: string;
+  chainId?: number;
+};
 
 type Props = {
   address?: string;
-  balances?: { chain: string; amount: string }[];
+  balances?: BalanceEntry[];
   onLogout?: () => void;
   onRefresh?: () => void;
 };

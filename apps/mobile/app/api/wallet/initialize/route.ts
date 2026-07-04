@@ -13,15 +13,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "userToken required" }, { status: 400 });
     }
 
-    // Create wallet set + wallet for the user
-    // Error code 155106 = user already initialized
     const response = await circleClient.createUserPinWithWallets({
       userToken,
       blockchains: [
         Blockchain.EthSepolia,
-        Blockchain.MaticAmoy,
-        Blockchain.AvaxFuji,
+        Blockchain.BaseSepolia,
         Blockchain.ArbSepolia,
+        Blockchain.AvaxFuji,
+        Blockchain.OpSepolia,
+        Blockchain.MaticAmoy,
+        Blockchain.ArcTestnet,
       ],
       accountType: "EOA",
     });
@@ -30,7 +31,6 @@ export async function POST(req: NextRequest) {
       challengeId: response.data?.challengeId,
     });
   } catch (error: any) {
-    // 155106 = user already has wallets
     if (error?.code === 155106 || error?.message?.includes("155106")) {
       return NextResponse.json({ code: 155106, message: "User already initialized" });
     }
