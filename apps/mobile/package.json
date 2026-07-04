@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@circle-fin/adapter-circle-wallets": "^1.4.1",
     "@circle-fin/adapter-viem-v2": "^1.12.1",
     "@circle-fin/app-kit": "^1.8.1",
     "@circle-fin/user-controlled-wallets": "^10.8.0",
