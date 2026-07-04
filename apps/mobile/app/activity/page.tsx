@@ -13,8 +13,8 @@ export default function ActivityPage() {
   }, []);
 
   return (
-    <div className="w-full max-w-sm">
-      <h2 className="text-lg font-semibold mb-4">Activity</h2>
+    <div className="w-full max-w-[420px]">
+      <h2 className="text-base font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Activity</h2>
       <ActivityList activities={activities} />
     </div>
   );
