@@ -32,7 +32,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { initiateUserControlledWalletsClient } from "@circle-fin/user-controlled-wallets";
 import { getChainBySdkName, isPilotCctpRoute } from "@/lib/chains";
-import { isValidEvmAddress, isValidAmount } from "@/lib/validation";
+import { isValidEvmAddress, isValidAmount, parseUsdcAmountToAtomic } from "@/lib/validation";
 import { getCctpForwardingFeeQuote } from "@/lib/cctp/fees";
 import { buildApproveExecution } from "@/lib/cctp/builders";
 import { buildRecipientBytes32, FORWARDING_SERVICE_HOOK_DATA } from "@/lib/cctp/forwarding";
@@ -121,11 +121,13 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Step 5: Compute atomic amounts ──────────────────────────────────
-  // USDC has 6 decimals. Convert human-readable amount to atomic units.
-  const transferAmountAtomic = BigInt(Math.round(parseFloat(amount) * 1_000_000));
-
-  if (transferAmountAtomic <= BigInt(0)) {
-    return NextResponse.json({ error: "Amount must be greater than zero" }, { status: 400 });
+  // Exact string parser — no parseFloat, no floating-point rounding.
+  let transferAmountAtomic: bigint;
+  try {
+    transferAmountAtomic = parseUsdcAmountToAtomic(amount);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Invalid amount";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   // ── Step 6: Fetch live Iris sandbox forwarding fee quote ─────────────
