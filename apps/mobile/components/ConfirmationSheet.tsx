@@ -6,9 +6,11 @@ type Props = {
   onConfirm: () => void;
   onCancel: () => void;
   loading?: boolean;
+  /** Custom confirm button text. Defaults to "Confirm" or "Signing..." when loading. */
+  confirmText?: string;
 };
 
-export function ConfirmationSheet({ title, rows, onConfirm, onCancel, loading }: Props) {
+export function ConfirmationSheet({ title, rows, onConfirm, onCancel, loading, confirmText = "Confirm" }: Props) {
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
       <div
@@ -58,7 +60,7 @@ export function ConfirmationSheet({ title, rows, onConfirm, onCancel, loading }:
               borderRadius: "var(--radius-sm)",
             }}
           >
-            {loading ? "Signing..." : "Confirm"}
+            {loading ? "Signing..." : confirmText}
           </button>
         </div>
       </div>

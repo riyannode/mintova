@@ -311,16 +311,41 @@ export function useUcwWallet() {
     }
   }, [session, wallet, loadBalances]);
 
+  // ── Phase 4.7: Execute a UCW challenge (e.g. approve) ──
+  const executeChallenge = useCallback(
+    (challengeId: string): Promise<{ error: unknown; result: unknown }> => {
+      return new Promise((resolve) => {
+        if (!sdkRef.current || !session?.userToken || !session?.encryptionKey) {
+          resolve({ error: new Error("SDK not initialized or no session"), result: undefined });
+          return;
+        }
+
+        sdkRef.current.setAuthentication({
+          userToken: session.userToken,
+          encryptionKey: session.encryptionKey,
+        });
+
+        sdkRef.current.execute(challengeId, (err: unknown, result: unknown) => {
+          resolve({ error: err, result });
+        });
+      });
+    },
+    [session],
+  );
+
   return {
     state,
     wallet,
     balances,
     error,
     isConnected: state === "connected" && !!wallet,
+    /** User token for API calls (NOT the encryptionKey) */
+    userToken: session?.userToken || null,
     loginWithGoogle,
     initializeUser,
     logout,
     refreshBalances,
+    executeChallenge,
     clearError: () => setError(null),
   };
 }

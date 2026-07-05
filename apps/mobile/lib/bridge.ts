@@ -43,6 +43,32 @@ export type BridgeExecuteResult = {
   executionEnabled?: boolean;
 };
 
+/** Response from /api/bridge/prepare */
+export type PrepareBridgeResult = {
+  prepareEnabled: boolean;
+  stage: string;
+  challengeId: string;
+  planId: string;
+  sourceChain: string;
+  destinationChain: string;
+  transferAmountAtomic: string;
+  protocolFeeAtomic: string;
+  forwardFeeAtomic: string;
+  maxFeeAtomic: string;
+  burnAmountAtomic: string;
+  nextStep: string;
+  warning: string;
+};
+
+/** Format atomic USDC (6 decimals) to human-readable string */
+export function formatAtomicUsdc(atomic: string): string {
+  const val = BigInt(atomic);
+  const whole = val / BigInt(1_000_000);
+  const frac = val % BigInt(1_000_000);
+  const fracStr = frac.toString().padStart(6, "0").replace(/0+$/, "");
+  return fracStr ? `${whole}.${fracStr}` : whole.toString();
+}
+
 export function validateBridgeParams(params: BridgeParams): void {
   if (!isValidAmount(params.amount)) {
     throw new MintovaError("INVALID_ADDRESS", "Invalid amount");
@@ -190,6 +216,35 @@ export async function retryBridge(
       steps: [],
       error: err.message || "Network error",
     };
+  }
+}
+
+/**
+ * Call /api/bridge/prepare to create an approve challenge.
+ *
+ * SAFETY: This does NOT execute the bridge. It only creates the UCW
+ * challenge for the approve(address,uint256) call. The frontend must
+ * call sdk.execute(challengeId) separately.
+ */
+export async function prepareBridge(
+  params: BridgeParams & { userToken: string; walletId: string },
+): Promise<{ ok: true; data: PrepareBridgeResult } | { ok: false; error: string; code?: string }> {
+  try {
+    const res = await fetch("/api/bridge/prepare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return { ok: false, error: data.error || "Prepare failed", code: data.code };
+    }
+
+    return { ok: true, data: data as PrepareBridgeResult };
+  } catch (err: any) {
+    return { ok: false, error: err.message || "Network error" };
   }
 }
 
