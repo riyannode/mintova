@@ -5,21 +5,40 @@ import { ChainSelector } from "./ChainSelector";
 import { AmountInput } from "./AmountInput";
 import { ConfirmationSheet } from "./ConfirmationSheet";
 import { ProgressTimeline } from "./ProgressTimeline";
-import { quoteBridge, executeBridge, buildBridgeConfirmation, type BridgeParams } from "@/lib/bridge";
-import { validateBridgeParams } from "@/lib/bridge";
+import {
+  prepareBridge,
+  formatAtomicUsdc,
+  validateBridgeParams,
+  type BridgeParams,
+} from "@/lib/bridge";
 import { isHighValue } from "@/lib/validation";
-import { getEnabledBridgeChains } from "@/lib/chains";
-import { saveActivity, updateActivity, generateLocalId, type ActivityEntry, type BridgeStep } from "@/lib/activity-store";
+import { getEnabledBridgeChains, getChainBySdkName, isPilotCctpRoute } from "@/lib/chains";
+import {
+  saveActivity,
+  updateActivity,
+  generateLocalId,
+  type ActivityEntry,
+  type BridgeStep,
+} from "@/lib/activity-store";
+import { useUcwWallet } from "@/lib/useUcwWallet";
 
 type View = "form" | "confirming" | "executing" | "success" | "error";
 
+/** Pilot-only confirmation info built from prepare response */
+type ApproveConfirmation = {
+  title: string;
+  rows: [string, string][];
+};
+
 export function BridgeCard() {
+  const ucw = useUcwWallet();
+
   const [fromChain, setFromChain] = useState("Ethereum_Sepolia");
   const [toChain, setToChain] = useState("Base_Sepolia");
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
   const [view, setView] = useState<View>("form");
-  const [confirmation, setConfirmation] = useState<{ title: string; rows: [string, string][] } | null>(null);
+  const [confirmation, setConfirmation] = useState<ApproveConfirmation | null>(null);
   const [steps, setSteps] = useState<BridgeStep[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activityId, setActivityId] = useState<string | null>(null);
@@ -39,14 +58,35 @@ export function BridgeCard() {
       return;
     }
 
-    // Get quote and build confirmation
-    const quote = await quoteBridge(params);
-    const conf = buildBridgeConfirmation(params, quote);
-    setConfirmation(conf);
+    // Pilot route gating on frontend
+    if (!isPilotCctpRoute(fromChain, toChain)) {
+      setError("Only Ethereum Sepolia → Base Sepolia is available in pilot");
+      return;
+    }
+
+    // Build pilot-route confirmation (no live quote yet)
+    const srcChain = getChainBySdkName(fromChain);
+    const dstChain = getChainBySdkName(toChain);
+
+    const rows: [string, string][] = [
+      ["Amount", `${amount} USDC`],
+      ["Est. max fee", "Fetching..."],
+      ["Total approval", "Fetching..."],
+      ["Route", `${srcChain?.displayName || fromChain} → ${dstChain?.displayName || toChain}`],
+      ["Status", "Pilot route"],
+    ];
+
+    setConfirmation({ title: `Approve ${amount} USDC`, rows });
     setView("confirming");
   }, [fromChain, toChain, amount, recipient]);
 
   const handleConfirm = useCallback(async () => {
+    // Validate UCW session
+    if (!ucw.isConnected) {
+      setError("Connect your UCW wallet first");
+      return;
+    }
+
     setView("executing");
     setError(null);
 
@@ -57,7 +97,7 @@ export function BridgeCard() {
       recipient,
     };
 
-    // Save activity entry
+    // Save activity entry with approve-pending state
     const localId = generateLocalId();
     setActivityId(localId);
 
@@ -69,72 +109,118 @@ export function BridgeCard() {
       destinationChain: toChain,
       amount,
       recipient,
-      status: "pending",
-      steps: [
-        { name: "approve", state: "pending" },
-        { name: "burn", state: "pending" },
-        { name: "fetchAttestation", state: "pending" },
-        { name: "mint", state: "pending" },
-      ],
+      status: "approve_pending",
+      steps: [{ name: "approve", state: "pending" }],
       explorerLinks: [],
       retryable: false,
     };
     saveActivity(entry);
     setSteps(entry.steps);
 
-    // Execute bridge
-    const result = await executeBridge(params);
-
-    if (result.success) {
-      setSteps(result.steps);
-      updateActivity(localId, {
-        status: "complete",
-        steps: result.steps,
-      });
-      setView("success");
-    } else {
-      // 501 blocked or real error — same UI, honest message
-      setSteps(result.steps);
-      setError(result.error || "Bridge failed");
-      updateActivity(localId, {
-        status: result.state === "blocked" ? "failed" : "failed",
-        steps: result.steps,
-        error: result.error,
-        errorCode: result.errorCode,
-        retryable: false, // No retry without saved SDK result
-      });
-      setView("error");
-    }
-  }, [fromChain, toChain, amount, recipient]);
-
-  const handleRetry = useCallback(async () => {
-    if (!activityId) return;
-    setView("executing");
-    setError(null);
-
-    const res = await fetch("/api/bridge/retry", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ activityId }),
+    // ── Step 1: Call /api/bridge/prepare ──────────────────────────────
+    const prepareResult = await prepareBridge({
+      ...params,
+      userToken: ucw.userToken || "",
+      walletId: ucw.wallet?.id || "",
     });
-    const result = await res.json();
 
-    if (result.state === "success") {
-      setSteps(result.steps);
-      updateActivity(activityId, { status: "complete", steps: result.steps });
-      setView("success");
-    } else {
-      setSteps(result.steps || []);
-      setError(result.error || "Bridge retry is not available");
-      updateActivity(activityId, {
+    if (!prepareResult.ok) {
+      const errorMsg = prepareResult.error;
+      const isUnsupportedRoute = prepareResult.code === "unsupported_route";
+
+      updateActivity(localId, {
         status: "failed",
-        steps: result.steps || [],
-        error: result.error,
+        error: errorMsg,
+        errorCode: prepareResult.code,
+        retryable: !isUnsupportedRoute,
+      });
+      setSteps([{ name: "approve", state: "error", error: errorMsg }]);
+      setError(errorMsg);
+      setView("error");
+      return;
+    }
+
+    const prepareData = prepareResult.data;
+
+    // Update activity with plan + challenge IDs (NOT the userToken/encryptionKey)
+    updateActivity(localId, {
+      planId: prepareData.planId,
+      approveChallengeId: prepareData.challengeId,
+    });
+
+    // Update confirmation with live fee data
+    const transferAmount = formatAtomicUsdc(prepareData.transferAmountAtomic);
+    const maxFee = formatAtomicUsdc(prepareData.maxFeeAtomic);
+    const burnAmount = formatAtomicUsdc(prepareData.burnAmountAtomic);
+    const srcChain = getChainBySdkName(prepareData.sourceChain);
+    const dstChain = getChainBySdkName(prepareData.destinationChain);
+
+    setConfirmation({
+      title: `Approve ${transferAmount} USDC`,
+      rows: [
+        ["Amount", `${transferAmount} USDC`],
+        ["Est. max fee", `${maxFee} USDC`],
+        ["Total approval", `${burnAmount} USDC`],
+        ["Route", `${srcChain?.displayName || prepareData.sourceChain} → ${dstChain?.displayName || prepareData.destinationChain}`],
+        ["Status", "Pilot route"],
+        ["Warning", prepareData.warning],
+      ],
+    });
+
+    // ── Step 2: Execute approve challenge via UCW SDK ─────────────────
+    updateActivity(localId, { status: "approve_submitted" });
+    setSteps([{ name: "approve", state: "pending" }]);
+
+    const { error: sdkError, result: sdkResult } = await ucw.executeChallenge(
+      prepareData.challengeId,
+    );
+
+    // Inspect SDK result shape (do not guess — report exact fields)
+    const challengeResult = sdkResult as
+      | { type?: string; status?: string; data?: { txHash?: string; signature?: string } }
+      | undefined;
+
+    if (sdkError || !challengeResult) {
+      // User rejected or SDK error
+      const errorMsg = sdkError
+        ? (sdkError as { message?: string }).message || "Wallet rejected"
+        : "Wallet rejected";
+
+      updateActivity(localId, {
+        status: "failed",
+        error: errorMsg,
         retryable: false,
       });
+      setSteps([{ name: "approve", state: "error", error: errorMsg }]);
+      setError(errorMsg);
       setView("error");
+      return;
     }
-  }, [activityId]);
+
+    // SDK result shape (contract execution):
+    //   type: ChallengeType (e.g. "CREATE_TRANSACTION")
+    //   status: ChallengeStatus (e.g. "COMPLETE", "FAILED")
+    //   data: { txHash?, signature?, signedTransaction? } (optional, for SIGN_TRANSACTION)
+    //
+    // For contract execution challenges, data fields may not be present.
+    // We store what exists; do not fabricate txHash.
+
+    const approveTxHash = challengeResult.data?.txHash || undefined;
+
+    updateActivity(localId, {
+      status: "approve_confirmed",
+      approveTransactionId: challengeResult.type || undefined,
+      approveTxHash,
+    });
+    setSteps([
+      {
+        name: "approve",
+        state: "success",
+        txHash: approveTxHash,
+      },
+    ]);
+    setView("success");
+  }, [fromChain, toChain, amount, recipient, ucw]);
 
   const reset = () => {
     setView("form");
@@ -144,21 +230,21 @@ export function BridgeCard() {
     setActivityId(null);
   };
 
-  // Executing view
+  // ── Executing view ──────────────────────────────────────────────────
   if (view === "executing") {
     return (
       <div className="w-full max-w-[420px]">
         <div className="glass-card p-5 space-y-5">
           <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-            Bridging {amount} USDC
+            Approving {amount} USDC
           </h2>
-          <ProgressTimeline steps={steps} currentStep={steps.find(s => s.state === "pending")?.name} />
+          <ProgressTimeline steps={steps} currentStep="approve" />
         </div>
       </div>
     );
   }
 
-  // Success view
+  // ── Success view (approve only) ─────────────────────────────────────
   if (view === "success") {
     return (
       <div className="w-full max-w-[420px]">
@@ -172,9 +258,11 @@ export function BridgeCard() {
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold" style={{ color: "var(--mint)" }}>Bridge Complete</h3>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              {amount} USDC bridged successfully
+            <h3 className="text-lg font-semibold" style={{ color: "var(--mint)" }}>
+              Approval Submitted
+            </h3>
+            <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
+              USDC approval confirmed
             </p>
           </div>
 
@@ -196,7 +284,7 @@ export function BridgeCard() {
     );
   }
 
-  // Error view
+  // ── Error view ──────────────────────────────────────────────────────
   if (view === "error") {
     return (
       <div className="w-full max-w-[420px]">
@@ -212,7 +300,9 @@ export function BridgeCard() {
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold" style={{ color: "var(--danger)" }}>Bridge Failed</h3>
+            <h3 className="text-lg font-semibold" style={{ color: "var(--danger)" }}>
+              {error === "Wallet rejected" ? "Wallet Rejected" : "Approval Failed"}
+            </h3>
             <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
               {error}
             </p>
@@ -239,7 +329,7 @@ export function BridgeCard() {
     );
   }
 
-  // Main form
+  // ── Main form ───────────────────────────────────────────────────────
   const bridgeRoutesAvailable = getEnabledBridgeChains().length > 0;
 
   return (
@@ -255,7 +345,7 @@ export function BridgeCard() {
               border: "1px solid rgba(255, 193, 7, 0.2)",
             }}
           >
-            Pending UCW signing
+            Pilot — approve only
           </span>
         </div>
 
@@ -364,6 +454,7 @@ export function BridgeCard() {
           rows={confirmation.rows}
           onConfirm={handleConfirm}
           onCancel={() => setView("form")}
+          confirmText="Approve USDC"
         />
       )}
     </div>

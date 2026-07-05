@@ -14,7 +14,15 @@ export type ActivityEntry = {
   destinationChain: string;
   amount: string;
   recipient: string;
-  status: "pending" | "attesting" | "minting" | "complete" | "failed";
+  status:
+    | "pending"
+    | "attesting"
+    | "minting"
+    | "complete"
+    | "failed"
+    | "approve_pending"
+    | "approve_submitted"
+    | "approve_confirmed";
   result?: unknown;
   /** Full SDK result object when real execution exists */
   sdkResult?: unknown;
@@ -24,6 +32,16 @@ export type ActivityEntry = {
   /** Error code for programmatic handling (e.g. "UCW_BRIDGE_SIGNING_NOT_READY") */
   errorCode?: string;
   retryable: boolean;
+
+  // ── Phase 4.7: Approve-challenge specific fields ──
+  /** Plan ID from /api/bridge/prepare */
+  planId?: string;
+  /** UCW challenge ID for the approve step */
+  approveChallengeId?: string;
+  /** Circle transaction ID returned by sdk.execute() */
+  approveTransactionId?: string;
+  /** On-chain tx hash for approve (if available after polling) */
+  approveTxHash?: string;
 };
 
 const STORAGE_KEY = "mintova_activity";
