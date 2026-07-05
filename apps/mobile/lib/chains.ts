@@ -224,6 +224,19 @@ export function isRouteVerified(source: string, destination: string): boolean {
   return src.bridgeStatus === "verified" && dst.bridgeStatus === "verified";
 }
 
+/**
+ * Pilot route gating for UCW CCTP bridge.
+ *
+ * Only Ethereum_Sepolia → Base_Sepolia is allowed for the initial pilot.
+ * All other routes are rejected. This function does NOT check bridgeEnabled
+ * or bridgeStatus — those remain unverified/disabled globally.
+ *
+ * @returns true only if source=ethereum-sepolia, destination=base-sepolia
+ */
+export function isPilotCctpRoute(source: string, destination: string): boolean {
+  return source === "Ethereum_Sepolia" && destination === "Base_Sepolia";
+}
+
 /** Get all enabled chains for display */
 export function getEnabledChains(): MintovaChain[] {
   return CHAINS.filter((c) => c.enabled);
