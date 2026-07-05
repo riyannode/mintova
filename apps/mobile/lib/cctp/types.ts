@@ -37,12 +37,18 @@ export type CctpRouteConfig = {
   finalityThreshold: number;
 };
 
-/** Fee quote from the Iris API for a forwarding transfer. */
+/** Fee breakdown from the Iris API for a forwarding transfer. */
 export type CctpFeeQuote = {
-  /** Protocol fee rate in basis points (e.g. 1.3 = 0.013%) */
-  minimumFeeBps: number;
-  /** Forwarding service fee in USDC atomic units (med level) */
+  /** Raw minimumFee from Iris (basis points as float, e.g. 0.0001 = 0.01%) */
+  minimumFeeRaw: number;
+  /** Protocol fee in atomic USDC units (calculated from minimumFee × transferAmount) */
+  protocolFeeAtomic: string;
+  /** Forwarding service fee in atomic USDC units (med level) */
   forwardFeeAtomic: string;
+  /** Combined max fee = protocolFee + forwardFee */
+  maxFeeAtomic: string;
+  /** Amount to burn = transferAmount + maxFee */
+  burnAmountAtomic: string;
   /** Finality threshold (1000 = fast, 2000 = standard) */
   finalityThreshold: number;
   /** Whether the quote was fetched from the live API */
@@ -79,10 +85,16 @@ export type CctpBridgePlan = {
   recipientAddress: string;
   /** Recipient as bytes32 (left-padded for depositForBurnWithHook) */
   recipientBytes32: string;
-  /** Amount in atomic USDC units (6 decimals) */
-  amountAtomic: string;
-  /** Max fee in atomic units (from Iris fee quote) */
+  /** User-specified transfer amount in atomic USDC units (6 decimals) */
+  transferAmountAtomic: string;
+  /** Combined max fee in atomic units (protocolFee + forwardFee, from Iris fee quote) */
   maxFeeAtomic: string;
+  /**
+   * Total burn amount = transferAmountAtomic + maxFeeAtomic.
+   * This is the amount approved and burned in the CCTP contract call.
+   * Forwarding Service requires the burn to cover both the transfer and fees.
+   */
+  burnAmountAtomic: string;
   /** CCTP finality threshold (1000 = fast) */
   minFinalityThreshold: number;
   /** Forwarding service hook data (hex) */
